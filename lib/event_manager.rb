@@ -1,4 +1,5 @@
 require 'csv'
+require 'date'
 require 'erb'
 require 'google/apis/civicinfo_v2'
 
@@ -16,13 +17,13 @@ def clean_phone_number(phone_number)
   case
   when phone_number.size == 11 && phone_number[0] == '1'
     phone_number.delete_prefix('1')
-    phone_number.insert(0, '(').insert(4, ')').insert(8, '-')
+    phone_number
   when phone_number.size < 10 || phone_number.size > 11
     'Unavailable'
   when phone_number.size == 11 && phone_number[0] != '1'
     'Unavailable'
   else
-    phone_number.insert(0, '(').insert(4, ')').insert(8, '-')
+    phone_number
   end
 end
 
@@ -39,6 +40,12 @@ def legislators_by_zipcode(zip)
   rescue
     'You can find your representatives by visiting www.commoncause.org/take-action/find-elected-officials'
   end
+end
+
+def find_reg_hour(reg_date)
+  time_format = "%m/%d/%y %H:%M"
+  time = DateTime.strptime(reg_date, time_format)
+  time.hour
 end
 
 def save_thank_you_letter(id, form_letter)
@@ -62,9 +69,14 @@ contents = CSV.open(
 template_letter = File.read('form_letter.html')
 erb_template = ERB.new template_letter
 
+# Array for all registration hours
+reg_arr = []
+
 contents.each do |row|
   id = row[0]
   name = row[:first_name]
+
+  reg_arr.push(find_reg_hour(row[:regdate]))
 
   zipcode = clean_zipcode(row[:zipcode])
 
@@ -87,3 +99,7 @@ contents.each do |row|
   form_letter = erb_template.result(binding)
   puts form_letter
 end
+
+reg_counts = reg_arr.tally
+peak_hour = reg_counts.max_by { |n, count| count }.first
+puts "Peak Hour: #{peak_hour}"
