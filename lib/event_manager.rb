@@ -42,10 +42,24 @@ def legislators_by_zipcode(zip)
   end
 end
 
+# Returns registration hour
 def find_reg_hour(reg_date)
   time_format = "%m/%d/%y %H:%M"
   time = DateTime.strptime(reg_date, time_format)
   time.hour
+end
+
+# Returns registration weekday
+def find_reg_wday(reg_date)
+  time_format = "%m/%d/%y %H:%M"
+  time = DateTime.strptime(reg_date, time_format)
+  time.wday
+end
+
+# Returns most frequent number in array, used for finding peak days/hours
+def most_frequent(arr)
+  reg_counts = arr.tally
+  reg_counts.max_by { |n, count| count }.first
 end
 
 def save_thank_you_letter(id, form_letter)
@@ -69,14 +83,16 @@ contents = CSV.open(
 template_letter = File.read('form_letter.html')
 erb_template = ERB.new template_letter
 
-# Array for all registration hours
-reg_arr = []
+# Arrays for all registration hours and weekdays
+reg_hour_arr = []
+reg_wday_arr = []
 
 contents.each do |row|
   id = row[0]
   name = row[:first_name]
 
-  reg_arr.push(find_reg_hour(row[:regdate]))
+  reg_hour_arr.push(find_reg_hour(row[:regdate]))
+  reg_wday_arr.push(find_reg_wday(row[:regdate]))
 
   zipcode = clean_zipcode(row[:zipcode])
 
@@ -86,20 +102,9 @@ contents.each do |row|
 
   form_letter = erb_template.result(binding)
 
-  save_thank_you_letter(id,form_letter)
+  save_thank_you_letter(id, form_letter)
   puts phone_number
 end
 
-contents.each do |row|
-  name = row[:first_name]
-  zipcode = clean_zipcode(row[:zipcode])
-
-  legislators = legislators_by_zipcode(zipcode)
-
-  form_letter = erb_template.result(binding)
-  puts form_letter
-end
-
-reg_counts = reg_arr.tally
-peak_hour = reg_counts.max_by { |n, count| count }.first
-puts "Peak Hour: #{peak_hour}"
+puts "Peak Hour (24h format): #{most_frequent(reg_hour_arr)}"
+puts "Peak Weekday (Sun = 0 - Sat = 6): #{most_frequent(reg_wday_arr)}"
